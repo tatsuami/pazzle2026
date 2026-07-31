@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>スライドパズル</title>
+<style>
+  :root{
+    --bg:#12142B;
+    --panel:#1C1F42;
+    --panel2:#242854;
+    --accent:#FFB627;
+    --accent2:#3ECF8E;
+    --text:#F5F3ED;
+    --text-dim:#A9ACC9;
+    --tile-shadow: rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;
+    overflow:hidden;
+    touch-action:manipulation;
+    -webkit-user-select:none; user-select:none;
+  }
+  #app{
+    position:fixed; inset:0;
+  }
+  .screen{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:20px 20px 24px;
+    opacity:0; pointer-events:none;
+    transform:scale(.97);
+    transition:opacity .35s ease, transform .35s ease;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  .screen.active{
+    opacity:1; pointer-events:auto; transform:scale(1);
+  }
+  .screen > *{ flex-shrink:0; }
+
+  /* ---------- Title screen ---------- */
+  .title-tiles{
+    display:flex; gap:10px; margin-bottom:8px;
+  }
+  .title-tile{
+    width:52px; height:52px;
+    background:linear-gradient(160deg, var(--panel2), var(--panel));
+    border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:26px; font-weight:700;
+    color:var(--accent);
+    box-shadow:0 6px 0 var(--tile-shadow), 0 8px 14px rgba(0,0,0,.35);
+    animation:float 3.2s ease-in-out infinite;
+  }
+  .title-tile:nth-child(2){ color:var(--accent2); animation-delay:.15s;}
+  .title-tile:nth-child(3){ animation-delay:.3s;}
+  .title-tile:nth-child(4){ color:var(--accent2); animation-delay:.45s;}
+  @keyframes float{
+    0%,100%{ transform:translateY(0) rotate(-2deg);}
+    50%{ transform:translateY(-8px) rotate(2deg);}
+  }
+  .subtitle{
+    color:var(--text-dim);
+    font-size:14px;
+    letter-spacing:.08em;
+    margin-bottom:36px;
+  }
+  .btn{
+    appearance:none; border:none; outline:none;
+    font-family:inherit;
+    background:var(--accent);
+    color:#1B1B1B;
+    font-size:17px; font-weight:700;
+    padding:15px 40px;
+    border-radius:999px;
+    box-shadow:0 5px 0 #C4870F, 0 10px 18px rgba(0,0,0,.35);
+    cursor:pointer;
+    letter-spacing:.03em;
+  }
+  .btn:active{
+    transform:translateY(4px);
+    box-shadow:0 1px 0 #C4870F, 0 4px 10px rgba(0,0,0,.3);
+  }
+  .btn:disabled{
+    opacity:.5; cursor:default;
+    box-shadow:0 5px 0 #C4870F, 0 10px 18px rgba(0,0,0,.35);
+  }
+  .btn:disabled:active{ transform:none; }
+  .btn.secondary{
+    background:transparent;
+    color:var(--text-dim);
+    box-shadow:none;
+    font-size:14px;
+    font-weight:500;
+    padding:10px 20px;
+    margin-top:14px;
+  }
+  .btn.secondary:active{ transform:none; box-shadow:none; opacity:.6;}
+
+  /* ---------- Puzzle screen ---------- */
+  .hud{
+    display:flex; justify-content:center; align-items:center;
+    width:100%; max-width:380px;
+    margin-bottom:16px;
+    font-size:13px; color:var(--text-dim);
+  }
+  .hud b{ color:var(--text); font-size:15px;}
+  #board{
+    position:relative;
+    border-radius:16px;
+    background:var(--panel);
+    box-shadow:0 10px 30px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.04);
+    overflow:hidden;
+  }
+  .tile{
+    position:absolute;
+    border-radius:9px;
+    background-repeat:no-repeat;
+    box-shadow:0 3px 0 rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.15);
+    transition:left .16s ease, top .16s ease;
+    cursor:pointer;
+  }
+  .tile-num{
+    position:absolute;
+    top:4px; left:6px;
+    font-size:11px;
+    font-weight:700;
+    color:rgba(255,255,255,.85);
+    text-shadow:0 1px 2px rgba(0,0,0,.6);
+    background:rgba(0,0,0,.28);
+    border-radius:6px;
+    padding:1px 6px;
+  }
+  .puzzle-actions{
+    display:flex; gap:14px; margin-top:20px;
+  }
+  .link-btn{
+    background:none; border:none; color:var(--text-dim);
+    font-size:13px; font-family:inherit;
+    padding:6px 10px;
+  }
+
+  /* ---------- Clear screen ---------- */
+  .clear-emoji{ font-size:56px; margin-bottom:6px; animation:pop .5s ease;}
+  @keyframes pop{
+    0%{ transform:scale(.3); opacity:0;}
+    60%{ transform:scale(1.15); opacity:1;}
+    100%{ transform:scale(1);}
+  }
+  .clear-title{ font-size:24px; font-weight:800; margin-bottom:6px;}
+  .clear-sub{ color:var(--text-dim); font-size:14px; margin-bottom:24px;}
+  .clear-photo{
+    width:min(78vw, 300px);
+    max-height:38vh;
+    object-fit:cover;
+    border-radius:14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.45);
+    margin-bottom:26px;
+  }
+  .clear-stats{
+    display:flex; gap:24px; margin-bottom:30px;
+  }
+  .stat{ text-align:center;}
+  .stat b{ display:block; font-size:22px; color:var(--accent);}
+  .stat span{ font-size:12px; color:var(--text-dim);}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TITLE -->
+  <div class="screen active" id="screen-title">
+    <div class="title-tiles">
+      <div class="title-tile">ぱ</div>
+      <div class="title-tile">ず</div>
+      <div class="title-tile">る</div>
+      <div class="title-tile">!</div>
+    </div>
+    <div class="subtitle">スライドパズル ・ 全1問</div>
+    <button class="btn" id="btn-start" disabled>よみこみちゅう…</button>
+  </div>
+
+  <!-- PUZZLE -->
+  <div class="screen" id="screen-puzzle">
+    <div class="hud">てすう <b id="move-count">0</b></div>
+    <div id="board"></div>
+    <div class="puzzle-actions">
+      <button class="link-btn" id="btn-reset">↺ さいしょから</button>
+      <button class="link-btn" id="btn-title">🏠 タイトルへ</button>
+    </div>
+  </div>
+
+  <!-- CLEAR -->
+  <div class="screen" id="screen-clear">
+    <div class="clear-emoji">🎉</div>
+    <div class="clear-title">クリア!</div>
+    <div class="clear-sub">おつかれさまでした ✨</div>
+    <img class="clear-photo" id="clear-photo" alt="">
+    <div class="clear-stats">
+      <div class="stat"><b id="clear-moves">0</b><span>てすう</span></div>
+    </div>
+    <button class="btn" id="btn-next">もういちどあそぶ</button>
+    <button class="btn secondary" id="btn-clear-title">タイトルへもどる</button>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var IMG_SRC = "image.jpg";
+  var IMG_W = 600, IMG_H = 900; // fallback until the real image loads
+
+  var screens = {
+    title: document.getElementById('screen-title'),
+    puzzle: document.getElementById('screen-puzzle'),
+    clear: document.getElementById('screen-clear')
+  };
+  function show(name){
+    Object.keys(screens).forEach(function(k){
+      screens[k].classList.toggle('active', k === name);
+    });
+  }
+
+  var CLEAR_IMG_SRC = "clear.jpg";
+  document.getElementById('clear-photo').src = CLEAR_IMG_SRC;
+
+  var imgReady = false;
+  var preload = new Image();
+  preload.onload = function(){
+    IMG_W = preload.naturalWidth;
+    IMG_H = preload.naturalHeight;
+    imgReady = true;
+    var startBtn = document.getElementById('btn-start');
+    startBtn.disabled = false;
+    startBtn.textContent = 'タップしてスタート';
+  };
+  preload.onerror = function(){
+    var startBtn = document.getElementById('btn-start');
+    startBtn.textContent = '画像が見つかりません';
+  };
+  preload.src = IMG_SRC;
+
+  var rows = 3, cols = 3, n = rows * cols, blankValue = n - 1;
+
+  var boardEl = document.getElementById('board');
+  var moveCountEl = document.getElementById('move-count');
+
+  var board = [];      // board[cellIndex] = tileValue
+  var tileEls = {};    // tileValue -> element
+  var tileW = 0, tileH = 0;
+  var moveCount = 0;
+  var locked = false;
+
+  function correctRowCol(value){
+    return { r: Math.floor(value / cols), c: value % cols };
+  }
+
+  function layoutSize(){
+    var hudEl = document.querySelector('.hud');
+    var actionsEl = document.querySelector('.puzzle-actions');
+    var hudH = hudEl ? hudEl.offsetHeight + 16 : 0;
+    var actionsH = actionsEl ? actionsEl.offsetHeight + 20 : 0;
+    var screenPadding = 44; // top+bottom padding of .screen
+    var maxW = Math.min(window.innerWidth * 0.9, 380);
+    var maxH = Math.max(window.innerHeight - hudH - actionsH - screenPadding, 180);
+    var boardW = maxW;
+    var boardH = boardW * (IMG_H / IMG_W);
+    if (boardH > maxH){
+      boardH = maxH;
+      boardW = boardH * (IMG_W / IMG_H);
+    }
+    tileW = Math.floor(boardW / cols);
+    tileH = Math.floor(boardH / rows);
+    boardEl.style.width = (tileW * cols) + 'px';
+    boardEl.style.height = (tileH * rows) + 'px';
+  }
+
+  function buildLevel(){
+    board = [];
+    for (var i = 0; i < n; i++) board.push(i);
+    layoutSize();
+    shuffle();
+    renderAll();
+    moveCount = 0;
+    moveCountEl.textContent = '0';
+    locked = false;
+  }
+
+  function neighbors(pos){
+    var r = Math.floor(pos / cols), c = pos % cols;
+    var list = [];
+    if (r > 0) list.push(pos - cols);
+    if (r < rows - 1) list.push(pos + cols);
+    if (c > 0) list.push(pos - 1);
+    if (c < cols - 1) list.push(pos + 1);
+    return list;
+  }
+
+  function shuffle(){
+    var blankPos = n - 1;
+    var lastPos = -1;
+    var steps = rows * cols * 40;
+    for (var i = 0; i < steps; i++){
+      var opts = neighbors(blankPos).filter(function(p){ return p !== lastPos; });
+      var next = opts[Math.floor(Math.random() * opts.length)];
+      board[blankPos] = board[next];
+      board[next] = blankValue;
+      lastPos = blankPos;
+      blankPos = next;
+    }
+  }
+
+  function renderAll(){
+    boardEl.innerHTML = '';
+    tileEls = {};
+    for (var cell = 0; cell < n; cell++){
+      var value = board[cell];
+      if (value === blankValue) continue;
+      var el = document.createElement('div');
+      el.className = 'tile';
+      el.dataset.value = value;
+      el.style.width = tileW + 'px';
+      el.style.height = tileH + 'px';
+      el.style.backgroundImage = 'url(' + IMG_SRC + ')';
+      el.style.backgroundSize = (cols * tileW) + 'px ' + (rows * tileH) + 'px';
+      var home = correctRowCol(value);
+      el.style.backgroundPosition = (-home.c * tileW) + 'px ' + (-home.r * tileH) + 'px';
+      var num = document.createElement('div');
+      num.className = 'tile-num';
+      num.textContent = value + 1;
+      el.appendChild(num);
+      positionTile(el, cell);
+      el.addEventListener('click', function(e){
+        onTileClick(parseInt(e.currentTarget.dataset.value, 10));
+      });
+      boardEl.appendChild(el);
+      tileEls[value] = el;
+    }
+  }
+
+  function positionTile(el, cell){
+    var r = Math.floor(cell / cols), c = cell % cols;
+    el.style.left = (c * tileW) + 'px';
+    el.style.top = (r * tileH) + 'px';
+  }
+
+  function findCell(value){
+    for (var i = 0; i < n; i++) if (board[i] === value) return i;
+    return -1;
+  }
+
+  function onTileClick(value){
+    if (locked) return;
+    var cell = findCell(value);
+    var blankPos = findCell(blankValue);
+    var cr = Math.floor(cell / cols), cc = cell % cols;
+    var br = Math.floor(blankPos / cols), bc = blankPos % cols;
+    var dist = Math.abs(cr - br) + Math.abs(cc - bc);
+    if (dist !== 1) return;
+
+    board[blankPos] = value;
+    board[cell] = blankValue;
+    positionTile(tileEls[value], blankPos);
+    moveCount++;
+    moveCountEl.textContent = String(moveCount);
+
+    if (isSolved()){
+      locked = true;
+      setTimeout(onCleared, 260);
+    }
+  }
+
+  function isSolved(){
+    for (var i = 0; i < n; i++) if (board[i] !== i) return false;
+    return true;
+  }
+
+  function onCleared(){
+    document.getElementById('clear-moves').textContent = String(moveCount);
+    show('clear');
+  }
+
+  window.addEventListener('resize', function(){
+    if (screens.puzzle.classList.contains('active')){
+      layoutSize();
+      renderAll();
+    }
+  });
+
+  document.getElementById('btn-start').addEventListener('click', function(){
+    buildLevel();
+    show('puzzle');
+  });
+  document.getElementById('btn-reset').addEventListener('click', function(){
+    buildLevel();
+  });
+  document.getElementById('btn-title').addEventListener('click', function(){
+    show('title');
+  });
+  document.getElementById('btn-clear-title').addEventListener('click', function(){
+    show('title');
+  });
+  document.getElementById('btn-next').addEventListener('click', function(){
+    buildLevel();
+    show('puzzle');
+  });
+})();
+</script>
+</body>
+</html>
