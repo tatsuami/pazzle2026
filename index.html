@@ -136,6 +136,34 @@
     border-radius:6px;
     padding:1px 6px;
   }
+  #board.solved{
+    box-shadow:0 10px 30px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.04), 0 0 0 3px var(--accent2);
+    cursor:pointer;
+  }
+  #board.solved .tile{
+    border-radius:0;
+    box-shadow:none;
+  }
+  .reveal-hint{
+    margin-top:14px;
+    font-size:13px;
+    font-weight:700;
+    color:var(--accent2);
+    opacity:0;
+    height:0;
+    overflow:hidden;
+    animation:none;
+  }
+  .reveal-hint.show{
+    opacity:1;
+    height:auto;
+    margin-top:14px;
+    animation:hintPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes hintPulse{
+    0%,100%{ opacity:1; }
+    50%{ opacity:.45; }
+  }
   .puzzle-actions{
     display:flex; gap:14px; margin-top:20px;
   }
@@ -189,6 +217,7 @@
   <div class="screen" id="screen-puzzle">
     <div class="hud">てすう <b id="move-count">0</b></div>
     <div id="board"></div>
+    <div class="reveal-hint" id="reveal-hint">タップしてつぎへ ▶</div>
     <div class="puzzle-actions">
       <button class="link-btn" id="btn-reset">↺ さいしょから</button>
       <button class="link-btn" id="btn-title">🏠 タイトルへ</button>
@@ -289,6 +318,11 @@
     moveCount = 0;
     moveCountEl.textContent = '0';
     locked = false;
+    boardEl.classList.remove('solved');
+    hintEl.classList.remove('show');
+    boardEl.removeEventListener('click', onRevealTap);
+    hintEl.removeEventListener('click', onRevealTap);
+    blankFillEl = null;
   }
 
   function neighbors(pos){
@@ -371,13 +405,48 @@
 
     if (isSolved()){
       locked = true;
-      setTimeout(onCleared, 260);
+      setTimeout(revealComplete, 260);
     }
   }
 
   function isSolved(){
     for (var i = 0; i < n; i++) if (board[i] !== i) return false;
     return true;
+  }
+
+  var boardEl_ref = document.getElementById('board');
+  var hintEl = document.getElementById('reveal-hint');
+  var blankFillEl = null;
+
+  function revealComplete(){
+    boardEl_ref.classList.add('solved');
+    hintEl.classList.add('show');
+    boardEl_ref.addEventListener('click', onRevealTap);
+    hintEl.addEventListener('click', onRevealTap);
+
+    var blankCell = findCell(blankValue);
+    var home = correctRowCol(blankValue);
+    blankFillEl = document.createElement('div');
+    blankFillEl.className = 'tile';
+    blankFillEl.style.width = tileW + 'px';
+    blankFillEl.style.height = tileH + 'px';
+    blankFillEl.style.backgroundImage = 'url(' + IMG_SRC + ')';
+    blankFillEl.style.backgroundSize = (cols * tileW) + 'px ' + (rows * tileH) + 'px';
+    blankFillEl.style.backgroundPosition = (-home.c * tileW) + 'px ' + (-home.r * tileH) + 'px';
+    positionTile(blankFillEl, blankCell);
+    boardEl_ref.appendChild(blankFillEl);
+  }
+
+  function onRevealTap(){
+    boardEl_ref.removeEventListener('click', onRevealTap);
+    hintEl.removeEventListener('click', onRevealTap);
+    boardEl_ref.classList.remove('solved');
+    hintEl.classList.remove('show');
+    if (blankFillEl){
+      blankFillEl.remove();
+      blankFillEl = null;
+    }
+    onCleared();
   }
 
   function onCleared(){
