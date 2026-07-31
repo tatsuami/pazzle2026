@@ -144,6 +144,9 @@
     border-radius:0;
     box-shadow:none;
   }
+  #board.solved .tile-num{
+    display:none;
+  }
   .reveal-hint{
     margin-top:14px;
     font-size:13px;
@@ -322,6 +325,7 @@
     hintEl.classList.remove('show');
     boardEl.removeEventListener('click', onRevealTap);
     hintEl.removeEventListener('click', onRevealTap);
+    actionsEl_ref.style.display = '';
     blankFillEl = null;
   }
 
@@ -416,11 +420,13 @@
 
   var boardEl_ref = document.getElementById('board');
   var hintEl = document.getElementById('reveal-hint');
+  var actionsEl_ref = document.querySelector('.puzzle-actions');
   var blankFillEl = null;
 
   function revealComplete(){
     boardEl_ref.classList.add('solved');
     hintEl.classList.add('show');
+    actionsEl_ref.style.display = 'none';
     boardEl_ref.addEventListener('click', onRevealTap);
     hintEl.addEventListener('click', onRevealTap);
 
@@ -442,6 +448,7 @@
     hintEl.removeEventListener('click', onRevealTap);
     boardEl_ref.classList.remove('solved');
     hintEl.classList.remove('show');
+    actionsEl_ref.style.display = '';
     if (blankFillEl){
       blankFillEl.remove();
       blankFillEl = null;
